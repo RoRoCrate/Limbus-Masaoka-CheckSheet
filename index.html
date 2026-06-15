@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body { font-family: sans-serif; margin:10px; }
+
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+  gap:10px;
+}
+
+.book {
+  border-radius:10px;
+  padding:15px;
+  text-align:center;
+  cursor:pointer;
+  background:#f5f5f5;
+  box-shadow:2px 2px 5px rgba(0,0,0,0.3);
+}
+
+.owned { background:#c8f7c5; }
+.extra { background:#c5d9f7; }
+
+#detail { display:none; }
+
+@media(max-width:600px){
+  .grid { grid-template-columns:1fr; }
+  .book { font-size:18px; }
+}
+</style>
+</head>
+
+<body>
+
+<h2>本棚</h2>
+
+<select id="filter">
+<option value="all">全て</option>
+<option value="owned">保有</option>
+<option value="not">未保有</option>
+<option value="extra">追加</option>
+</select>
+
+<div id="books" class="grid"></div>
+
+<div id="detail">
+<h2 id="title"></h2>
+<p id="status"></p>
+<p id="type"></p>
+
+<button onclick="toggle()">保有切替</button>
+<button onclick="back()">戻る</button>
+</div>
+
+<script>
+const API = "ここにAppsScriptのURL";
+
+let data = [];
+let currentItem = null;
+
+// 取得
+function load(){
+ fetch(API)
+ .then(r=>r.json())
+ .then(d=>{
+   data = d;
+   render(d);
+ });
+}
+
+// 描画
+function render(list){
+ const el=document.getElementById("books");
+ el.innerHTML="";
+
+ list.forEach(item=>{
+   const div=document.createElement("div");
+   div.className="book";
+
+   if(item.owned) div.classList.add("owned");
+   if(item.type==="追加") div.classList.add("extra");
+
+   div.innerHTML = `📘<br>${item.name}<br>${item.type}`;
+
+   div.onclick=()=>openBook(item);
+   el.appendChild(div);
+ });
+}
+
+// 詳細表示
+function openBook(item){
+ currentItem=item;
+
+ document.getElementById("books").style.display="none";
+ document.getElementById("detail").style.display="block";
+
+ document.getElementById("title").textContent=item.name;
+ document.getElementById("status").textContent="保有: "+(item.owned?"✔":"✖");
+ document.getElementById("type").textContent="種別: "+item.type;
+}
+
+// 戻る
+function back(){
+ document.getElementById("books").style.display="grid";
+ document.getElementById("detail").style.display="none";
+ load();
+}
+
+// 保有切替
+function toggle(){
+ currentItem.owned = !currentItem.owned;
+
+ fetch(API, {
+   method:"POST",
+   body:JSON.stringify(currentItem)
+ }).then(()=>load());
+}
+
+// フィルター
+document.getElementById("filter").addEventListener("change", e=>{
+ const v=e.target.value;
+
+ let filtered=data.filter(d=>{
+   if(v==="owned") return d.owned;
+   if(v==="not") return !d.owned;
+   if(v==="extra") return d.type==="追加";
+   return true;
+ });
+
+ render(filtered);
+});
+
+load();
+</script>
+
+</body>
+</html>
