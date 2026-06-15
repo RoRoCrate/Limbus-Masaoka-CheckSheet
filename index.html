@@ -5,135 +5,223 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body { font-family: sans-serif; margin:10px; }
-
-.grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
-  gap:10px;
+body {
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont;
+  background:#f0f2f5;
 }
 
-.book {
-  border-radius:10px;
-  padding:15px;
+/* ヘッダー */
+header {
+  background:#111;
+  color:white;
+  padding:12px;
+  text-align:center;
+  font-size:18px;
+}
+
+/* タブ */
+.tabs {
+  display:flex;
+  overflow-x:auto;
+  background:#222;
+}
+
+.tab {
+  flex:1;
+  padding:12px;
+  color:#aaa;
   text-align:center;
   cursor:pointer;
-  background:#f5f5f5;
-  box-shadow:2px 2px 5px rgba(0,0,0,0.3);
 }
 
-.owned { background:#c8f7c5; }
-.extra { background:#c5d9f7; }
+.tab.active {
+  color:#fff;
+  border-bottom:2px solid #4cafef;
+}
 
-#detail { display:none; }
+/* 本棚 */
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:12px;
+  padding:12px;
+}
 
+/* カード */
+.book {
+  background:white;
+  border-radius:16px;
+  padding:16px;
+  text-align:center;
+  cursor:pointer;
+  box-shadow:0 4px 8px rgba(0,0,0,0.1);
+  transition:0.2s;
+}
+
+.book:active {
+  transform:scale(0.97);
+}
+
+.owned {
+  border-left:5px solid #4caf50;
+}
+
+.extra {
+  border-left:5px solid #2196f3;
+}
+
+/* 詳細 */
+#detail {
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:white;
+  padding:20px;
+  display:none;
+  animation:fade 0.2s;
+}
+
+@keyframes fade {
+  from {opacity:0;}
+  to {opacity:1;}
+}
+
+/* ボタン */
+button {
+  padding:12px;
+  margin-top:10px;
+  width:100%;
+  border:none;
+  border-radius:10px;
+  background:#111;
+  color:white;
+}
+
+/* スマホ */
 @media(max-width:600px){
-  .grid { grid-template-columns:1fr; }
-  .book { font-size:18px; }
+  .grid {
+    grid-template-columns:1fr;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<h2>本棚</h2>
+<header>Library App</header>
 
-<select id="filter">
-<option value="all">全て</option>
-<option value="owned">保有</option>
-<option value="not">未保有</option>
-<option value="extra">追加</option>
-</select>
+<div class="tabs" id="tabs"></div>
 
 <div id="books" class="grid"></div>
 
 <div id="detail">
-<h2 id="title"></h2>
-<p id="status"></p>
-<p id="type"></p>
+  <h2 id="title"></h2>
+  <p id="status"></p>
+  <p id="type"></p>
 
-<button onclick="toggle()">保有切替</button>
-<button onclick="back()">戻る</button>
+  <button onclick="toggle()">保有切替</button>
+  <button onclick="closeDetail()">戻る</button>
 </div>
 
 <script>
-const API = "ここにAppsScriptのURL";
+const API = "ここにAppsScriptURL";
 
-let data = [];
+let db = {};
+let currentCategory = "identity";
 let currentItem = null;
 
-// 取得
-function load(){
- fetch(API)
- .then(r=>r.json())
- .then(d=>{
-   data = d;
-   render(d);
- });
+// タブ生成
+const categories = ["identity","singularidentity","ego","suppassive","mental"];
+
+function initTabs(){
+  const tabs=document.getElementById("tabs");
+  tabs.innerHTML="";
+  categories.forEach(cat=>{
+    const t=document.createElement("div");
+    t.className="tab";
+    t.textContent=cat;
+    t.onclick=()=>switchTab(cat);
+    tabs.appendChild(t);
+  });
+}
+
+// タブ切替
+function switchTab(cat){
+  currentCategory=cat;
+
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.remove("active");
+    if(t.textContent===cat) t.classList.add("active");
+  });
+
+  render(db[cat]);
 }
 
 // 描画
 function render(list){
- const el=document.getElementById("books");
- el.innerHTML="";
+  const el=document.getElementById("books");
+  el.innerHTML="";
 
- list.forEach(item=>{
-   const div=document.createElement("div");
-   div.className="book";
+  list.forEach(item=>{
+    const div=document.createElement("div");
+    div.className="book";
 
-   if(item.owned) div.classList.add("owned");
-   if(item.type==="追加") div.classList.add("extra");
+    if(item.owned) div.classList.add("owned");
+    if(item.type==="追加") div.classList.add("extra");
 
-   div.innerHTML = `📘<br>${item.name}<br>${item.type}`;
+    div.innerHTML = `
+      📘<br><b>${item.name}</b><br>${item.type}
+    `;
 
-   div.onclick=()=>openBook(item);
-   el.appendChild(div);
- });
+    div.onclick=()=>open(item);
+    el.appendChild(div);
+  });
 }
 
-// 詳細表示
-function openBook(item){
- currentItem=item;
+// 詳細
+function open(item){
+  currentItem=item;
 
- document.getElementById("books").style.display="none";
- document.getElementById("detail").style.display="block";
+  document.getElementById("detail").style.display="block";
 
- document.getElementById("title").textContent=item.name;
- document.getElementById("status").textContent="保有: "+(item.owned?"✔":"✖");
- document.getElementById("type").textContent="種別: "+item.type;
+  document.getElementById("title").textContent=item.name;
+  document.getElementById("status").textContent="保有: "+(item.owned?"✔":"✖");
+  document.getElementById("type").textContent="種別: "+item.type;
 }
 
-// 戻る
-function back(){
- document.getElementById("books").style.display="grid";
- document.getElementById("detail").style.display="none";
- load();
+// 閉じる
+function closeDetail(){
+  document.getElementById("detail").style.display="none";
+  load();
 }
 
-// 保有切替
+// 切替
 function toggle(){
- currentItem.owned = !currentItem.owned;
+  currentItem.owned=!currentItem.owned;
 
- fetch(API, {
-   method:"POST",
-   body:JSON.stringify(currentItem)
- }).then(()=>load());
+  fetch(API,{
+    method:"POST",
+    body:JSON.stringify({
+      ...currentItem,
+      sheet:currentCategory
+    })
+  }).then(()=>load());
 }
 
-// フィルター
-document.getElementById("filter").addEventListener("change", e=>{
- const v=e.target.value;
-
- let filtered=data.filter(d=>{
-   if(v==="owned") return d.owned;
-   if(v==="not") return !d.owned;
-   if(v==="extra") return d.type==="追加";
-   return true;
+// 読み込み
+function load(){
+ fetch(API)
+ .then(r=>r.json())
+ .then(d=>{
+   db=d;
+   switchTab(currentCategory);
  });
+}
 
- render(filtered);
-});
-
+initTabs();
 load();
 </script>
 
