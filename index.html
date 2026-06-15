@@ -11,7 +11,7 @@ body{
   background:#e6ded3;
 }
 
-/* タイトル */
+/* ヘッダー */
 header{
   background:#3e2723;
   color:white;
@@ -20,7 +20,27 @@ header{
   font-size:18px;
 }
 
-/* セクションタイトル */
+/* タブ */
+.tabs{
+  display:flex;
+  overflow-x:auto;
+  background:#4e342e;
+}
+
+.tab{
+  flex:1;
+  padding:10px;
+  text-align:center;
+  color:#ccc;
+  cursor:pointer;
+}
+
+.tab.active{
+  color:white;
+  border-bottom:3px solid #ffd54f;
+}
+
+/* 棚タイトル */
 .section-title{
   background:#5d4037;
   color:white;
@@ -89,7 +109,9 @@ header{
 
 <header>Library System</header>
 
-<div id="books"></div>
+<div class="tabs" id="tabs"></div>
+
+<div id="content"></div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbzEA00F2y8kX95Zg01EoekoOgZO7gxyntNSQ6QtrcYLCaBto21pW8IyZLrTcKT1oCIlGw/exec";
@@ -103,74 +125,102 @@ const categories = [
 ];
 
 let db = {};
+let current = "identity";
 
-// 読み込み
+// ✅ タブ生成
+function initTabs(){
+  const tabs = document.getElementById("tabs");
+
+  categories.forEach(cat=>{
+    const t = document.createElement("div");
+    t.className = "tab";
+    t.textContent = cat;
+
+    t.onclick = ()=>{
+      current = cat;
+      updateTabs();
+      render();
+    };
+
+    tabs.appendChild(t);
+  });
+
+  updateTabs();
+}
+
+// ✅ タブ状態更新
+function updateTabs(){
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.remove("active");
+    if(t.textContent === current){
+      t.classList.add("active");
+    }
+  });
+}
+
+// ✅ 描画（カテゴリ単体）
+function render(){
+  const container = document.getElementById("content");
+  container.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "section-title";
+  title.textContent = current;
+  container.appendChild(title);
+
+  const shelf = document.createElement("div");
+  shelf.className = "shelf";
+
+  db[current].forEach(item=>{
+    const div = document.createElement("div");
+    div.className = "book";
+
+    if(item.owned){
+      div.classList.add("owned");
+    }else{
+      div.classList.add("not-owned");
+    }
+
+    if(item.type==="追加"){
+      div.classList.add("extra");
+    }
+
+    div.textContent = item.name;
+
+    div.onclick = ()=>toggleItem(item);
+
+    shelf.appendChild(div);
+  });
+
+  container.appendChild(shelf);
+}
+
+// ✅ トグル
+function toggleItem(item){
+  item.owned = !item.owned;
+
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      name:item.name,
+      owned:item.owned,
+      sheet:current
+    })
+  }).then(()=>load());
+}
+
+// ✅ 読み込み
 function load(){
  fetch(API_URL)
  .then(r=>r.json())
  .then(data=>{
    db = data;
-   renderAll();
+   render();
  });
-}
-
-// 描画（図書館構造）
-function renderAll(){
- const container = document.getElementById("books");
- container.innerHTML = "";
-
- categories.forEach(cat=>{
-   // タイトル
-   const title = document.createElement("div");
-   title.className = "section-title";
-   title.textContent = cat;
-   container.appendChild(title);
-
-   // 棚
-   const shelf = document.createElement("div");
-   shelf.className = "shelf";
-
-   db[cat].forEach(item=>{
-     const div = document.createElement("div");
-     div.className = "book";
-
-     if(item.owned){
-       div.classList.add("owned");
-     }else{
-       div.classList.add("not-owned");
-     }
-
-     if(item.type==="追加"){
-       div.classList.add("extra");
-     }
-
-     div.textContent = item.name;
-
-     // ✅ クリックで切替
-     div.onclick = ()=>toggleItem(item,cat);
-
-     shelf.appendChild(div);
-   });
-
-   container.appendChild(shelf);
- });
-}
-
-// トグル
-function toggleItem(item,cat){
- item.owned = !item.owned;
-
- fetch(API_URL,{
-   method:"POST",
-   body:JSON.stringify({
-     name:item.name,
-     owned:item.owned,
-     sheet:cat
-   })
- }).then(()=>load());
 }
 
 // 初期化
+initTabs();
 load();
 </script>
 
